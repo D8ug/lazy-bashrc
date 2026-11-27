@@ -1,0 +1,10 @@
+# Local environment configuration (machine-specific paths, etc.)
+config.env
+.env
+
+# Personal local overrides not meant for version control
+local/
+
+# Symlinked project bashrc files (files live in their own project repos)
+projects/*
+!projects/README.md
