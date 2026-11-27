@@ -529,6 +529,8 @@ assert_contains "$c_out_content" "PWD_AFTER_C=${TMP_DIR}/1/2/3/4/5/6" "c moves u
 assert_contains "$c_out_content" "PWD_AFTER_CC=${TMP_DIR}/1/2/3/4" "cc moves up 2 directories"
 assert_contains "$c_out_content" "PWD_AFTER_CCCC=${TMP_DIR}" "cccc moves up 4 directories"
 assert_eq $'cd ../../../..\ncd ..\ncd ../..\ncd ../../../..' "$(cat "$c_err")" "c/cc/cccc print exact cd traces"
+c16_out="$(bash -c "source '${REPO_DIR}/init.sh'; declare -F cccccccccccccccc >/dev/null && echo OK" 2>/dev/null)"
+assert_eq "OK" "$c16_out" "16-level directory-up shortcut defined by default"
 
 printf 'Tests finished: %d passed, %d failed\n' "$PASS_COUNT" "$FAIL_COUNT"
 (( FAIL_COUNT == 0 ))
