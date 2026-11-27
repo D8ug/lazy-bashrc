@@ -20,7 +20,7 @@ lazy-bashrc/
 ├── lib/
 │   └── core.sh          # lazy_alias, lazy_register, lazy_run, dr
 ├── aliases/
-│   ├── apt.sh           # sai -> sudo apt install
+│   ├── apt.sh           # sai -> sudo apt install -y
 │   └── git.sh           # gco -> git checkout
 ├── functions/
 │   └── examples.sh      # Example composite functions (commented out)
@@ -45,7 +45,7 @@ To install only for the current user (skipping `/root/.bashrc`), run `source ./i
 
 | Command | Expands to |
 | --- | --- |
-| `sai <pkg...>` | `sudo apt install <pkg...>` |
+| `sai <pkg...>` | `sudo apt install -y <pkg...>` |
 | `gco <args...>` | `git checkout <args...>` |
 | `dr <cmd> [args...]` | Dry-run: prints what `<cmd>` will run without executing |
 
