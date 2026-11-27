@@ -66,10 +66,12 @@ chmod +x "${TMP_DIR}/bin/sudo" "${TMP_DIR}/bin/git"
 bash -n \
     "${REPO_DIR}/init.sh" \
     "${REPO_DIR}/install.sh" \
+    "${REPO_DIR}/refresh.sh" \
     "${REPO_DIR}/lib/core.sh" \
     "${REPO_DIR}/aliases/apt.sh" \
     "${REPO_DIR}/aliases/git.sh" \
     "${REPO_DIR}/functions/examples.sh" \
+    "${REPO_DIR}/functions/navigation.sh" \
     "${REPO_DIR}/tests/test_lazy_bashrc.sh"
 PASS_COUNT=$(( PASS_COUNT + 1 ))
 
@@ -421,6 +423,60 @@ bash -c "
 
 assert_eq "?? untracked.txt" "$(git -C "$git_work" status --porcelain)" "live gacmmnp commits tracked & prestaged files while leaving untracked.txt untracked"
 assert_eq "$(git -C "$git_work" rev-parse HEAD)" "$(git -C "$git_bare" rev-parse refs/heads/feat/amend-push)" "live gacmmnp force-pushes amended commit to origin"
+
+# 10. Test gpl, cb, and refresh.sh (both sourced and executed)
+refresh_work="${TMP_DIR}/refresh_work"
+refresh_bare="${TMP_DIR}/refresh_bare.git"
+refresh_repo="${refresh_work}/lazy-bashrc"
+mkdir -p "$refresh_work"
+git init --bare -b main "$refresh_bare" >/dev/null 2>&1
+git clone "$refresh_bare" "$refresh_repo" >/dev/null 2>&1
+git -C "$refresh_repo" config user.name "Test User"
+git -C "$refresh_repo" config user.email "test@example.com"
+
+cp "${REPO_DIR}/init.sh" "${REPO_DIR}/refresh.sh" "${REPO_DIR}/config.env.example" "$refresh_repo/"
+cp -r "${REPO_DIR}/lib" "${REPO_DIR}/aliases" "${REPO_DIR}/functions" "$refresh_repo/"
+chmod +x "${refresh_repo}/init.sh" "${refresh_repo}/refresh.sh"
+printf 'LAZY_WORK_DIR=%q\nLAZY_COLOR=never\n' "$refresh_work" > "${refresh_repo}/config.env"
+
+git -C "$refresh_repo" add -A
+git -C "$refresh_repo" commit -m "initial lazy-bashrc" >/dev/null 2>&1
+git -C "$refresh_repo" push -u origin main >/dev/null 2>&1
+
+# Push a new commit from a second clone so main is behind origin/main
+refresh_other="${TMP_DIR}/refresh_other"
+git clone "$refresh_bare" "$refresh_other" >/dev/null 2>&1
+git -C "$refresh_other" config user.name "Test User"
+git -C "$refresh_other" config user.email "test@example.com"
+printf '\nlazy_alias test_new_alias echo refreshed\n' >> "${refresh_other}/aliases/git.sh"
+git -C "$refresh_other" add aliases/git.sh
+git -C "$refresh_other" commit -m "add test_new_alias" >/dev/null 2>&1
+git -C "$refresh_other" push origin main >/dev/null 2>&1
+
+# Put refresh_repo on a feature branch before running source ./refresh.sh from TMP_DIR
+git -C "$refresh_repo" checkout -b feat/old-topic >/dev/null 2>&1
+refresh_rc="${TMP_DIR}/refresh_bashrc"
+printf 'source %q\n' "${refresh_repo}/init.sh" > "$refresh_rc"
+
+refresh_out="$(
+    bash --norc -i -c "
+        cd '${TMP_DIR}'
+        source '${refresh_repo}/refresh.sh' --rc '${refresh_rc}'
+        [[ \$- == *e* ]] && echo 'REFRESH_SETE_LEAK' || echo 'REFRESH_SETE_OK'
+        echo \"REFRESH_PWD=\${PWD}\"
+        echo \"REFRESH_BRANCH=\$(git branch --show-current)\"
+        declare -F test_new_alias >/dev/null && echo 'NEW_ALIAS_LOADED'
+    " 2>/dev/null
+)"
+
+assert_contains "$refresh_out" "REFRESH_SETE_OK" "sourcing refresh.sh does not leak set -e"
+assert_contains "$refresh_out" "REFRESH_PWD=${refresh_repo}" "refresh.sh moves PWD via cb to lazy-bashrc repo"
+assert_contains "$refresh_out" "REFRESH_BRANCH=main" "refresh.sh checks out main via gcom"
+assert_contains "$refresh_out" "NEW_ALIAS_LOADED" "refresh.sh pulls via gpl and reloads commands into current shell"
+
+# Also verify executing ./refresh.sh in a subshell prints reload notice and exits 0
+sub_refresh_out="$("${refresh_repo}/refresh.sh" 2>/dev/null)"
+assert_contains "$sub_refresh_out" "source ~/.bashrc" "executed refresh.sh prints reload reminder"
 
 printf 'Tests finished: %d passed, %d failed\n' "$PASS_COUNT" "$FAIL_COUNT"
 (( FAIL_COUNT == 0 ))

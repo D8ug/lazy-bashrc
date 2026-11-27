@@ -16,6 +16,7 @@ A modular, composable Bash alias and function framework with blue execution trac
 lazy-bashrc/
 ├── init.sh              # Entry point sourced by ~/.bashrc and /root/.bashrc
 ├── install.sh           # Adds/removes bashrc hooks and creates config.env
+├── refresh.sh           # Runs cb -> gcom -> gpl and reloads ~/.bashrc (when sourced)
 ├── config.env.example   # Config template (copy to config.env)
 ├── lib/
 │   └── core.sh          # lazy_alias, lazy_register, lazy_run, dr
@@ -23,7 +24,8 @@ lazy-bashrc/
 │   ├── apt.sh           # sai -> sudo apt install -y
 │   └── git.sh           # Git shortcuts & workflow functions (gco, gs, gam, gps*, etc.)
 ├── functions/
-│   └── examples.sh      # Example composite functions (commented out)
+│   ├── examples.sh      # Example composite functions (commented out)
+│   └── navigation.sh    # cd-work, cb -> cd to lazy-bashrc repo
 ├── projects/
 │   └── README.md        # Drop symlinks here (e.g. snake.bashrc -> external repo)
 └── tests/
@@ -41,6 +43,12 @@ Sourcing `install.sh` ensures `fzf` is installed, adds hooks in `~/.bashrc` and 
 
 To install only for the current user (skipping `/root/.bashrc`), run `source ./install.sh --user-only`. To uninstall, run `./install.sh --uninstall`.
 
+To pull the latest `main` (`cb` → `gcom` → `gpl`) and reload commands in your current shell:
+
+```bash
+source /opt/git/lazy-bashrc/refresh.sh
+```
+
 ## Baseline Commands
 
 | Command | Expands to |
@@ -53,6 +61,7 @@ To install only for the current user (skipping `/root/.bashrc`), run `source ./i
 | `fgco [query]` | Fuzzy branch checkout using `fzf` |
 | `gcob [branch]` | `gco -b <branch>` (prompts `branch name> ` if omitted) |
 | `gl [args...]` | `git log --oneline [args...]` |
+| `gpl [args...]` | `git pull [args...]` |
 | `gcmm [args...]` | `git commit --amend [args...]` |
 | `gcp <args...>` | `git cherry-pick <args...>` |
 | `gps [args...]` | `git push [args...] origin <current_branch>` |
@@ -60,6 +69,8 @@ To install only for the current user (skipping `/root/.bashrc`), run `source ./i
 | `gpsfff [args...]` | `git push --force [args...] origin <current_branch>` |
 | `gam` | Runs `gs` and `git add` on unstaged modified files only |
 | `gacmmnp [args...]` | Runs `gam` → `gcmm [args...]` → `gpsf` |
+| `cd-work <dir>` | `cd "${LAZY_WORK_DIR}/<dir>"` |
+| `cb` | `cd-work lazy-bashrc` (`cd /opt/git/lazy-bashrc`) |
 | `dr <cmd> [args...]` | Dry-run: prints what `<cmd>` will run without executing |
 
 ## Adding Aliases and Composite Functions
