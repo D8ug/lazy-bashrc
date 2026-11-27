@@ -103,12 +103,13 @@ PATH="${TMP_DIR}/bin:${PATH}" bash -c "
     source '${REPO_DIR}/init.sh'
     LAZY_COLOR=never
     sai vim htop
+    saui htop
     gco -b 'feat/hello world'
 " >"$stdout_file" 2>"$stderr_file"
 
-assert_eq $'MOCK_SUDO_OUT:apt install -y vim htop\nMOCK_GIT_OUT:checkout -b feat/hello world' "$(cat "$stdout_file")" "sai and gco stdout clean"
-assert_eq $'sudo apt install -y vim htop\ngit checkout -b feat/hello\\ world' "$(cat "$stderr_file")" "sai and gco stderr trace"
-assert_eq $'sudo apt install -y vim htop\ngit checkout -b feat/hello world' "$(cat "$MOCK_LOG")" "mocks invoked in live mode"
+assert_eq $'MOCK_SUDO_OUT:apt install -y vim htop\nMOCK_SUDO_OUT:apt remove -y htop\nMOCK_GIT_OUT:checkout -b feat/hello world' "$(cat "$stdout_file")" "sai, saui, and gco stdout clean"
+assert_eq $'sudo apt install -y vim htop\nsudo apt remove -y htop\ngit checkout -b feat/hello\\ world' "$(cat "$stderr_file")" "sai, saui, and gco stderr trace"
+assert_eq $'sudo apt install -y vim htop\nsudo apt remove -y htop\ngit checkout -b feat/hello world' "$(cat "$MOCK_LOG")" "mocks invoked in live mode"
 
 # 4. Test ANSI blue color output & NO_COLOR behavior
 color_err="${TMP_DIR}/color_err.txt"
@@ -136,13 +137,14 @@ PATH="${TMP_DIR}/bin:${PATH}" bash -c "
     source '${REPO_DIR}/init.sh'
     LAZY_COLOR=never
     dr sai curl
+    dr saui curl
     dr gco main
     dr echo should-not-print
     echo \"DRY_STATE=\${LAZY_DRY_RUN}\"
 " >"$dr_out" 2>"$dr_err"
 
 assert_eq "DRY_STATE=0" "$(cat "$dr_out")" "dr produces no command stdout and restores LAZY_DRY_RUN"
-assert_eq $'sudo apt install -y curl\ngit checkout main\necho should-not-print' "$(cat "$dr_err")" "dr prints traced commands to stderr"
+assert_eq $'sudo apt install -y curl\nsudo apt remove -y curl\ngit checkout main\necho should-not-print' "$(cat "$dr_err")" "dr prints traced commands to stderr"
 assert_eq "" "$(cat "$MOCK_LOG")" "dr does not execute underlying commands"
 
 # 6. Test composite functions (cd-work -> cb) and alias-on-alias (gcob -> gco) with indentation & cd in current shell

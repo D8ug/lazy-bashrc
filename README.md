@@ -21,7 +21,7 @@ lazy-bashrc/
 ├── lib/
 │   └── core.sh          # lazy_alias, lazy_register, lazy_run, dr
 ├── aliases/
-│   ├── apt.sh           # sai -> sudo apt install -y
+│   ├── apt.sh           # sai, saui -> sudo apt install/remove -y
 │   └── git.sh           # Git shortcuts & workflow functions (gco, gs, gam, gps*, etc.)
 ├── functions/
 │   ├── examples.sh      # Example composite functions (commented out)
@@ -55,6 +55,7 @@ refresh
 | Command | Expands to |
 | --- | --- |
 | `sai <pkg...>` | `sudo apt install -y <pkg...>` |
+| `saui <pkg...>` | `sudo apt remove -y <pkg...>` |
 | `gs` | `git status` |
 | `gco <args...>` | `git checkout <args...>` |
 | `gcom` | `gco main` (`git checkout main`) |
