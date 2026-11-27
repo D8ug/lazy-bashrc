@@ -72,6 +72,7 @@ bash -n \
     "${REPO_DIR}/aliases/git.sh" \
     "${REPO_DIR}/functions/examples.sh" \
     "${REPO_DIR}/functions/navigation.sh" \
+    "${REPO_DIR}/functions/refresh.sh" \
     "${REPO_DIR}/tests/test_lazy_bashrc.sh"
 PASS_COUNT=$(( PASS_COUNT + 1 ))
 
@@ -477,6 +478,25 @@ assert_contains "$refresh_out" "NEW_ALIAS_LOADED" "refresh.sh pulls via gpl and 
 # Also verify executing ./refresh.sh in a subshell prints reload notice and exits 0
 sub_refresh_out="$("${refresh_repo}/refresh.sh" 2>/dev/null)"
 assert_contains "$sub_refresh_out" "source ~/.bashrc" "executed refresh.sh prints reload reminder"
+
+# 10b. Test refresh() function (dr refresh + live refresh pulling another new commit & reloading)
+printf '\nlazy_alias test_refresh_fn_alias echo refreshed_via_fn\n' >> "${refresh_other}/aliases/git.sh"
+git -C "$refresh_other" add aliases/git.sh
+git -C "$refresh_other" commit -m "add test_refresh_fn_alias" >/dev/null 2>&1
+git -C "$refresh_other" push origin main >/dev/null 2>&1
+git -C "$refresh_repo" checkout -b feat/another-topic >/dev/null 2>&1
+
+refresh_fn_out="$(
+    bash --norc -i -c "
+        source '${refresh_repo}/init.sh'
+        dr refresh '${refresh_rc}'
+        refresh '${refresh_rc}'
+        echo \"FN_BRANCH=\$(git -C '${refresh_repo}' branch --show-current)\"
+        declare -F test_refresh_fn_alias >/dev/null && echo 'FN_NEW_ALIAS_LOADED'
+    " 2>/dev/null
+)"
+assert_contains "$refresh_fn_out" "FN_BRANCH=main" "refresh function updates repo to main"
+assert_contains "$refresh_fn_out" "FN_NEW_ALIAS_LOADED" "refresh function sources rc and loads new commands"
 
 printf 'Tests finished: %d passed, %d failed\n' "$PASS_COUNT" "$FAIL_COUNT"
 (( FAIL_COUNT == 0 ))
