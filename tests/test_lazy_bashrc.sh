@@ -227,7 +227,11 @@ assert_contains "$sourced_out" "SETE_OK" "sourcing install.sh does not leak set 
 assert_contains "$sourced_out" "SOURCED_SAI_OK" "sourcing install.sh auto-sources user bashrc into current shell"
 
 # 7c. Test install.sh installs fzf via apt-get when fzf is missing
-mkdir -p "${TMP_DIR}/apt_bin"
+mkdir -p "${TMP_DIR}/no_fzf_bin" "${TMP_DIR}/apt_bin"
+for tool in bash dirname readlink cat awk grep cp chmod mkdir rm mktemp test printf git sed tr cut; do
+    tool_path="$(command -v "$tool" || true)"
+    [[ -n "$tool_path" ]] && ln -sf "$tool_path" "${TMP_DIR}/no_fzf_bin/$tool"
+done
 apt_log="${TMP_DIR}/apt_install.log"
 : > "$apt_log"
 cat > "${TMP_DIR}/apt_bin/sudo" <<EOF
@@ -236,7 +240,7 @@ printf '%s\n' "\$*" >> "${apt_log}"
 EOF
 printf '#!/usr/bin/env bash\nexit 0\n' > "${TMP_DIR}/apt_bin/apt-get"
 chmod +x "${TMP_DIR}/apt_bin/sudo" "${TMP_DIR}/apt_bin/apt-get"
-PATH="${TMP_DIR}/apt_bin:/bin:/usr/bin" "${inst_repo}/install.sh" --user-bashrc "$user_rc" --root-bashrc "$root_rc" >/dev/null
+PATH="${TMP_DIR}/apt_bin:${TMP_DIR}/no_fzf_bin" "${inst_repo}/install.sh" --user-bashrc "$user_rc" --root-bashrc "$root_rc" >/dev/null
 assert_eq $'apt-get update\napt-get install -y fzf' "$(cat "$apt_log")" "install.sh installs fzf when missing"
 
 # 8. Test external symlinked project bashrc loading (e.g. snake.bashrc) + broken symlink handling
@@ -379,7 +383,7 @@ assert_contains "$live_git_content" "AFTER_FGCO_PICK=develop" "fgco uses fzf int
 assert_contains "$live_git_content" "cherry commit" "gcp cherry-picks commit and gl prints oneline log"
 
 missing_fzf_err="$(
-    PATH="/usr/bin:/bin" bash -c "
+    PATH="${TMP_DIR}/no_fzf_bin" bash -c "
         cd '${git_work}'
         source '${REPO_DIR}/init.sh'
         fgco
@@ -499,6 +503,34 @@ refresh_fn_out="$(
 )"
 assert_contains "$refresh_fn_out" "FN_BRANCH=main" "refresh function updates repo to main"
 assert_contains "$refresh_fn_out" "FN_NEW_ALIAS_LOADED" "refresh function sources rc and loads new commands"
+
+# 11. Test c / cc / ccc / cccc directory-up shortcuts (dr + live PWD changes)
+deep_dir="${TMP_DIR}/1/2/3/4/5/6/7"
+mkdir -p "$deep_dir"
+c_out="${TMP_DIR}/c_out.txt"
+c_err="${TMP_DIR}/c_err.txt"
+bash -c "
+    cd '${deep_dir}'
+    source '${REPO_DIR}/init.sh'
+    LAZY_COLOR=never
+    dr cccc
+    echo \"PWD_AFTER_DR=\${PWD}\"
+    c
+    echo \"PWD_AFTER_C=\${PWD}\"
+    cc
+    echo \"PWD_AFTER_CC=\${PWD}\"
+    cccc
+    echo \"PWD_AFTER_CCCC=\${PWD}\"
+" >"$c_out" 2>"$c_err"
+
+c_out_content="$(cat "$c_out")"
+assert_contains "$c_out_content" "PWD_AFTER_DR=${deep_dir}" "dr cccc does not change PWD"
+assert_contains "$c_out_content" "PWD_AFTER_C=${TMP_DIR}/1/2/3/4/5/6" "c moves up 1 directory"
+assert_contains "$c_out_content" "PWD_AFTER_CC=${TMP_DIR}/1/2/3/4" "cc moves up 2 directories"
+assert_contains "$c_out_content" "PWD_AFTER_CCCC=${TMP_DIR}" "cccc moves up 4 directories"
+assert_eq $'cd ../../../..\ncd ..\ncd ../..\ncd ../../../..' "$(cat "$c_err")" "c/cc/cccc print exact cd traces"
+c16_out="$(bash -c "source '${REPO_DIR}/init.sh'; declare -F cccccccccccccccc >/dev/null && echo OK" 2>/dev/null)"
+assert_eq "OK" "$c16_out" "16-level directory-up shortcut defined by default"
 
 printf 'Tests finished: %d passed, %d failed\n' "$PASS_COUNT" "$FAIL_COUNT"
 (( FAIL_COUNT == 0 ))
