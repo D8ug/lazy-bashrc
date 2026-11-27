@@ -15,3 +15,13 @@ cb() {
     fi
 }
 lazy_register cb
+
+# Directory-up shortcuts: c -> cd .., cc -> cd ../.., cccc -> cd ../../../.., etc.
+_lazy_c_name="c"
+_lazy_c_path=".."
+for (( _lazy_i = 1; _lazy_i <= ${LAZY_MAX_CD_UP:-10}; _lazy_i++ )); do
+    lazy_alias "$_lazy_c_name" cd "$_lazy_c_path"
+    _lazy_c_name+="c"
+    _lazy_c_path+="/.."
+done
+unset _lazy_c_name _lazy_c_path _lazy_i
