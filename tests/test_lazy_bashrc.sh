@@ -532,5 +532,30 @@ assert_eq $'cd ../../../..\ncd ..\ncd ../..\ncd ../../../..' "$(cat "$c_err")" "
 c16_out="$(bash -c "source '${REPO_DIR}/init.sh'; declare -F cccccccccccccccc >/dev/null && echo OK" 2>/dev/null)"
 assert_eq "OK" "$c16_out" "16-level directory-up shortcut defined by default"
 
+# 12. Test b (cd -) shortcut (dr + live previous-directory switching)
+b_dir_a="${TMP_DIR}/dir_a"
+b_dir_b="${TMP_DIR}/dir_b"
+mkdir -p "$b_dir_a" "$b_dir_b"
+b_out="${TMP_DIR}/b_out.txt"
+b_err="${TMP_DIR}/b_err.txt"
+bash -c "
+    source '${REPO_DIR}/init.sh'
+    LAZY_COLOR=never
+    cd '${b_dir_a}'
+    cd '${b_dir_b}'
+    dr b
+    echo \"PWD_AFTER_DR=\${PWD}\"
+    b >/dev/null
+    echo \"PWD_AFTER_B1=\${PWD}\"
+    b >/dev/null
+    echo \"PWD_AFTER_B2=\${PWD}\"
+" >"$b_out" 2>"$b_err"
+
+b_out_content="$(cat "$b_out")"
+assert_contains "$b_out_content" "PWD_AFTER_DR=${b_dir_b}" "dr b does not change PWD"
+assert_contains "$b_out_content" "PWD_AFTER_B1=${b_dir_a}" "b switches back to previous dir"
+assert_contains "$b_out_content" "PWD_AFTER_B2=${b_dir_b}" "b toggles back again"
+assert_eq $'cd -\ncd -\ncd -' "$(cat "$b_err")" "b prints cd - trace"
+
 printf 'Tests finished: %d passed, %d failed\n' "$PASS_COUNT" "$FAIL_COUNT"
 (( FAIL_COUNT == 0 ))

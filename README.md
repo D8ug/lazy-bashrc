@@ -74,6 +74,7 @@ refresh
 | `cd-work <dir>` | `cd "${LAZY_WORK_DIR}/<dir>"` |
 | `cb` | `cd-work lazy-bashrc` (`cd /opt/git/lazy-bashrc`) |
 | `c`, `cc`, `ccc`, ... | `cd ..`, `cd ../..`, `cd ../../..`, ... (up to 16 levels) |
+| `b` | `cd -` (switch back to previous directory) |
 | `refresh [rc]` | Runs `refresh.sh` and sources `~/.bashrc` (or `[rc]`) in current shell |
 | `dr <cmd> [args...]` | Dry-run: prints what `<cmd>` will run without executing |
 

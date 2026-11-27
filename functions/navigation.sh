@@ -25,3 +25,6 @@ for (( _lazy_i = 1; _lazy_i <= ${LAZY_MAX_CD_UP:-16}; _lazy_i++ )); do
     _lazy_c_path+="/.."
 done
 unset _lazy_c_name _lazy_c_path _lazy_i
+
+# Switch back to the previous working directory.
+lazy_alias b cd -
