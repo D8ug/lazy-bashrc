@@ -103,9 +103,9 @@ PATH="${TMP_DIR}/bin:${PATH}" bash -c "
     gco -b 'feat/hello world'
 " >"$stdout_file" 2>"$stderr_file"
 
-assert_eq $'MOCK_SUDO_OUT:apt install vim htop\nMOCK_GIT_OUT:checkout -b feat/hello world' "$(cat "$stdout_file")" "sai and gco stdout clean"
-assert_eq $'sudo apt install vim htop\ngit checkout -b feat/hello\\ world' "$(cat "$stderr_file")" "sai and gco stderr trace"
-assert_eq $'sudo apt install vim htop\ngit checkout -b feat/hello world' "$(cat "$MOCK_LOG")" "mocks invoked in live mode"
+assert_eq $'MOCK_SUDO_OUT:apt install -y vim htop\nMOCK_GIT_OUT:checkout -b feat/hello world' "$(cat "$stdout_file")" "sai and gco stdout clean"
+assert_eq $'sudo apt install -y vim htop\ngit checkout -b feat/hello\\ world' "$(cat "$stderr_file")" "sai and gco stderr trace"
+assert_eq $'sudo apt install -y vim htop\ngit checkout -b feat/hello world' "$(cat "$MOCK_LOG")" "mocks invoked in live mode"
 
 # 4. Test ANSI blue color output & NO_COLOR behavior
 color_err="${TMP_DIR}/color_err.txt"
@@ -114,7 +114,7 @@ PATH="${TMP_DIR}/bin:${PATH}" bash -c "
     LAZY_COLOR=always
     dr sai vim
 " >/dev/null 2>"$color_err"
-assert_eq $'\033[1;34msudo apt install vim\033[0m' "$(cat "$color_err")" "blue ANSI escape emitted when LAZY_COLOR=always"
+assert_eq $'\033[1;34msudo apt install -y vim\033[0m' "$(cat "$color_err")" "blue ANSI escape emitted when LAZY_COLOR=always"
 
 no_color_err="${TMP_DIR}/no_color_err.txt"
 PATH="${TMP_DIR}/bin:${PATH}" bash -c "
@@ -123,7 +123,7 @@ PATH="${TMP_DIR}/bin:${PATH}" bash -c "
     NO_COLOR=1
     dr sai vim
 " >/dev/null 2>"$no_color_err"
-assert_eq "sudo apt install vim" "$(cat "$no_color_err")" "NO_COLOR suppresses ANSI escapes"
+assert_eq "sudo apt install -y vim" "$(cat "$no_color_err")" "NO_COLOR suppresses ANSI escapes"
 
 # 5. Test dr (dry-run) does NOT execute mocks or raw commands and does not leak state
 : > "$MOCK_LOG"
@@ -139,7 +139,7 @@ PATH="${TMP_DIR}/bin:${PATH}" bash -c "
 " >"$dr_out" 2>"$dr_err"
 
 assert_eq "DRY_STATE=0" "$(cat "$dr_out")" "dr produces no command stdout and restores LAZY_DRY_RUN"
-assert_eq $'sudo apt install curl\ngit checkout main\necho should-not-print' "$(cat "$dr_err")" "dr prints traced commands to stderr"
+assert_eq $'sudo apt install -y curl\ngit checkout main\necho should-not-print' "$(cat "$dr_err")" "dr prints traced commands to stderr"
 assert_eq "" "$(cat "$MOCK_LOG")" "dr does not execute underlying commands"
 
 # 6. Test composite functions (cd-work -> cb) and alias-on-alias (gcob -> gco) with indentation & cd in current shell
