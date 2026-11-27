@@ -70,6 +70,7 @@ bash -n \
     "${REPO_DIR}/lib/core.sh" \
     "${REPO_DIR}/aliases/apt.sh" \
     "${REPO_DIR}/aliases/git.sh" \
+    "${REPO_DIR}/aliases/system.sh" \
     "${REPO_DIR}/functions/examples.sh" \
     "${REPO_DIR}/functions/navigation.sh" \
     "${REPO_DIR}/functions/refresh.sh" \
@@ -556,6 +557,19 @@ assert_contains "$b_out_content" "PWD_AFTER_DR=${b_dir_b}" "dr b does not change
 assert_contains "$b_out_content" "PWD_AFTER_B1=${b_dir_a}" "b switches back to previous dir"
 assert_contains "$b_out_content" "PWD_AFTER_B2=${b_dir_b}" "b toggles back again"
 assert_eq $'cd -\ncd -\ncd -' "$(cat "$b_err")" "b prints cd - trace"
+
+# 13. Test sus (sudo su) alias (dr + live mock sudo)
+: > "$MOCK_LOG"
+sus_err="${TMP_DIR}/sus_err.txt"
+PATH="${TMP_DIR}/bin:${PATH}" bash -c "
+    source '${REPO_DIR}/init.sh'
+    LAZY_COLOR=never
+    dr sus
+    sus -
+" >/dev/null 2>"$sus_err"
+
+assert_eq $'sudo su\nsudo su -' "$(cat "$sus_err")" "sus prints sudo su traces"
+assert_eq "sudo su -" "$(cat "$MOCK_LOG")" "dr sus skips sudo while live sus executes it"
 
 printf 'Tests finished: %d passed, %d failed\n' "$PASS_COUNT" "$FAIL_COUNT"
 (( FAIL_COUNT == 0 ))
