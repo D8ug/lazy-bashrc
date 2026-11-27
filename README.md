@@ -50,7 +50,7 @@ To install only for the current user (skipping `/root/.bashrc`), run `source ./i
 | `gco <args...>` | `git checkout <args...>` |
 | `gcom` | `gco main` (`git checkout main`) |
 | `gcod` | `gco develop` (`git checkout develop`) |
-| `fgco [query]` | Fuzzy branch checkout (`fzf` if installed, else built-in fuzzy prompt) |
+| `fgco [query]` | Fuzzy branch checkout using `fzf` |
 | `gcob [branch]` | `gco -b <branch>` (prompts `branch name> ` if omitted) |
 | `gl [args...]` | `git log --oneline [args...]` |
 | `gcmm [args...]` | `git commit --amend [args...]` |

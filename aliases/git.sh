@@ -24,8 +24,13 @@ gcob() {
 }
 lazy_register gcob
 
-# Fuzzy branch checkout using fzf when available, with a pure-Bash fuzzy fallback.
+# Fuzzy branch checkout using fzf.
 fgco() {
+    if ! command -v fzf >/dev/null 2>&1; then
+        printf 'fgco: fzf is required (install with: sai fzf)\n' >&2
+        return 1
+    fi
+
     if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         printf 'fgco: not inside a git repository\n' >&2
         return 1
@@ -48,62 +53,13 @@ fgco() {
         return 1
     fi
 
-    local selected=""
-    if command -v fzf >/dev/null 2>&1; then
-        local -a fzf_args=(--height 40% --reverse --prompt="branch> ")
-        if [[ $# -gt 0 ]]; then
-            fzf_args+=(--query "$*" --select-1 --exit-0)
-        fi
-        selected="$(printf '%s\n' "${unique_branches[@]}" | fzf "${fzf_args[@]}")" || return 1
-    else
-        local query="$*"
-        local -a matches=()
-        if [[ -n "$query" ]]; then
-            local regex="" i ch
-            for (( i = 0; i < ${#query}; i++ )); do
-                ch="${query:i:1}"
-                [[ "$ch" == [[:space:]] ]] && continue
-                case "$ch" in
-                    '.'|'^'|'$'|'*'|'+'|'?'|'('|')'|'['|']'|'{'|'}'|'\'|'|')
-                        regex+="\\${ch}.*"
-                        ;;
-                    *)
-                        regex+="${ch}.*"
-                        ;;
-                esac
-            done
-            local had_nocasematch=0
-            shopt -q nocasematch && had_nocasematch=1
-            shopt -s nocasematch
-            for line in "${unique_branches[@]}"; do
-                [[ "$line" =~ $regex ]] && matches+=("$line")
-            done
-            (( had_nocasematch )) || shopt -u nocasematch
-        else
-            matches=("${unique_branches[@]}")
-        fi
-
-        if (( ${#matches[@]} == 0 )); then
-            printf 'fgco: no branch matching "%s"\n' "$query" >&2
-            return 1
-        elif (( ${#matches[@]} == 1 )); then
-            selected="${matches[0]}"
-        else
-            local idx=1
-            for line in "${matches[@]}"; do
-                printf '%2d) %s\n' "$idx" "$line" >&2
-                idx=$(( idx + 1 ))
-            done
-            local choice=""
-            read -r -p "select branch (1-${#matches[@]}): " choice || return 1
-            if [[ ! "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#matches[@]} )); then
-                printf 'fgco: invalid selection\n' >&2
-                return 1
-            fi
-            selected="${matches[$(( choice - 1 ))]}"
-        fi
+    local -a fzf_args=(--height 40% --reverse --prompt="branch> ")
+    if [[ $# -gt 0 ]]; then
+        fzf_args+=(--query "$*" --select-1 --exit-0)
     fi
 
+    local selected
+    selected="$(printf '%s\n' "${unique_branches[@]}" | fzf "${fzf_args[@]}")" || return 1
     [[ -n "$selected" ]] || return 1
     lazy_run gco "$selected"
 }

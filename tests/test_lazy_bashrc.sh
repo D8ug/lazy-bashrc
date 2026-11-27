@@ -307,9 +307,27 @@ assert_contains "$git_dr_content" "git push --force origin main" "dr gpsfff trac
 assert_contains "$git_dr_content" $'gco -b feat/arg-branch\n  git checkout -b feat/arg-branch' "dr gcob with arg"
 assert_contains "$git_dr_content" $'gco -b feat/from-prompt\n  git checkout -b feat/from-prompt' "dr gcob prompts and trims branch name"
 
-# 9b. Test live gcod, gcom, gcob (prompted), fgco (fallback & fzf mock), gl, gcp
+# 9b. Test live gcod, gcom, gcob (prompted), fgco (fzf + missing fzf check), gl, gcp
+mkdir -p "${TMP_DIR}/fzf_bin"
+cat > "${TMP_DIR}/fzf_bin/fzf" <<'EOF'
+#!/usr/bin/env bash
+query=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --query) query="${2:-}"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+if [[ -n "$query" ]]; then
+    grep -m1 "$query"
+else
+    grep -m1 '^develop$'
+fi
+EOF
+chmod +x "${TMP_DIR}/fzf_bin/fzf"
+
 live_git_out="${TMP_DIR}/live_git_out.txt"
-bash -c "
+PATH="${TMP_DIR}/fzf_bin:${PATH}" bash -c "
     cd '${git_work}'
     source '${REPO_DIR}/init.sh'
     LAZY_COLOR=never
@@ -323,35 +341,29 @@ bash -c "
     git add cherry.txt && git commit -m 'cherry commit' >/dev/null
     cherry_sha=\$(git rev-parse HEAD)
     fgco alpha
-    echo \"AFTER_FGCO_FALLBACK=\$(git branch --show-current)\"
+    echo \"AFTER_FGCO_QUERY=\$(git branch --show-current)\"
     gcp \"\$cherry_sha\" >/dev/null
     gl -n 2
+    fgco
+    echo \"AFTER_FGCO_PICK=\$(git branch --show-current)\"
 " >"$live_git_out" 2>/dev/null
 
 live_git_content="$(cat "$live_git_out")"
 assert_contains "$live_git_content" "AFTER_GCOD=develop" "gcod checks out develop"
 assert_contains "$live_git_content" "AFTER_GCOM=main" "gcom checks out main"
 assert_contains "$live_git_content" "AFTER_GCOB=feat/live-prompt" "gcob creates and checks out prompted branch"
-assert_contains "$live_git_content" "AFTER_FGCO_FALLBACK=feature/alpha" "fgco fallback fuzzy-matches feature/alpha"
+assert_contains "$live_git_content" "AFTER_FGCO_QUERY=feature/alpha" "fgco passes query to fzf and checks out feature/alpha"
+assert_contains "$live_git_content" "AFTER_FGCO_PICK=develop" "fgco uses fzf interactively without query"
 assert_contains "$live_git_content" "cherry commit" "gcp cherry-picks commit and gl prints oneline log"
 
-# Test fgco with mock fzf in PATH (isolated from mock git)
-mkdir -p "${TMP_DIR}/fzf_bin"
-cat > "${TMP_DIR}/fzf_bin/fzf" <<'EOF'
-#!/usr/bin/env bash
-grep -m1 '^develop$'
-EOF
-chmod +x "${TMP_DIR}/fzf_bin/fzf"
-fgco_fzf_out="$(
-    PATH="${TMP_DIR}/fzf_bin:${PATH}" bash -c "
+missing_fzf_err="$(
+    PATH="/usr/bin:/bin" bash -c "
         cd '${git_work}'
         source '${REPO_DIR}/init.sh'
-        LAZY_COLOR=never
         fgco
-        git branch --show-current
-    " 2>/dev/null
+    " 2>&1 || true
 )"
-assert_eq "develop" "$fgco_fzf_out" "fgco uses fzf when available"
+assert_contains "$missing_fzf_err" "fgco: fzf is required" "fgco reports missing fzf clearly"
 
 # 9c. Test gam (only unstaged modified files, not untracked or already staged) + gacmmnp (dr & live)
 bash -c "
