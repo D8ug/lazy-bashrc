@@ -5,6 +5,7 @@ lazy_alias gs git status
 lazy_alias gcom gco main
 lazy_alias gcod gco develop
 lazy_alias gl git log --oneline
+lazy_alias gpl git pull
 lazy_alias gcmm git commit --amend
 lazy_alias gcp git cherry-pick
 
