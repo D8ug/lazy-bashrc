@@ -34,11 +34,12 @@ lazy-bashrc/
 
 ```bash
 cd /opt/git/lazy-bashrc
-./install.sh
-source ~/.bashrc
+source ./install.sh
 ```
 
-To install only for the current user (skipping `/root/.bashrc`), run `./install.sh --user-only`. To uninstall, run `./install.sh --uninstall`.
+Sourcing `install.sh` installs the hooks in `~/.bashrc` and `/root/.bashrc`, creates `config.env`, and immediately runs `source ~/.bashrc` in your current shell.
+
+To install only for the current user (skipping `/root/.bashrc`), run `source ./install.sh --user-only`. To uninstall, run `./install.sh --uninstall`.
 
 ## Baseline Commands
 

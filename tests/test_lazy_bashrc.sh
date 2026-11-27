@@ -181,6 +181,7 @@ assert_eq "" "$(cat "$MOCK_LOG")" "dr gcob does not execute git"
 inst_repo="${TMP_DIR}/repo"
 mkdir -p "$inst_repo"
 cp "${REPO_DIR}/install.sh" "${REPO_DIR}/init.sh" "${REPO_DIR}/config.env.example" "$inst_repo/"
+cp -r "${REPO_DIR}/lib" "${REPO_DIR}/aliases" "$inst_repo/"
 chmod +x "${inst_repo}/install.sh"
 
 user_rc="${TMP_DIR}/home/.bashrc"
@@ -204,6 +205,17 @@ assert_not_contains "$(cat "$user_rc")" "lazy-bashrc" "uninstall removes block f
 assert_not_contains "$(cat "$root_rc")" "lazy-bashrc" "uninstall removes block from root bashrc"
 assert_contains "$(cat "$user_rc")" "# existing user line" "uninstall preserves existing user bashrc content"
 assert_contains "$(cat "$root_rc")" "# existing root line" "uninstall preserves existing root bashrc content"
+
+# 7b. Test sourcing install.sh in an interactive shell auto-sources user bashrc without leaking set -e
+sourced_out="$(
+    bash --norc -i -c "
+        source '${inst_repo}/install.sh' --user-bashrc '${user_rc}' --root-bashrc '${root_rc}' >/dev/null
+        [[ \$- == *e* ]] && echo 'SETE_LEAK' || echo 'SETE_OK'
+        declare -F sai >/dev/null && echo 'SOURCED_SAI_OK'
+    " 2>/dev/null
+)"
+assert_contains "$sourced_out" "SETE_OK" "sourcing install.sh does not leak set -e"
+assert_contains "$sourced_out" "SOURCED_SAI_OK" "sourcing install.sh auto-sources user bashrc into current shell"
 
 # 8. Test external symlinked project bashrc loading (e.g. snake.bashrc) + broken symlink handling
 proj_ext="${TMP_DIR}/external_snake"
