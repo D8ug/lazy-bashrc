@@ -25,7 +25,8 @@ lazy-bashrc/
 │   └── git.sh           # Git shortcuts & workflow functions (gco, gs, gam, gps*, etc.)
 ├── functions/
 │   ├── examples.sh      # Example composite functions (commented out)
-│   └── navigation.sh    # cd-work, cb -> cd to lazy-bashrc repo
+│   ├── navigation.sh    # cd-work, cb -> cd to lazy-bashrc repo
+│   └── refresh.sh       # refresh -> runs refresh.sh and sources ~/.bashrc
 ├── projects/
 │   └── README.md        # Drop symlinks here (e.g. snake.bashrc -> external repo)
 └── tests/
@@ -46,7 +47,7 @@ To install only for the current user (skipping `/root/.bashrc`), run `source ./i
 To pull the latest `main` (`cb` → `gcom` → `gpl`) and reload commands in your current shell:
 
 ```bash
-source /opt/git/lazy-bashrc/refresh.sh
+refresh
 ```
 
 ## Baseline Commands
@@ -71,6 +72,7 @@ source /opt/git/lazy-bashrc/refresh.sh
 | `gacmmnp [args...]` | Runs `gam` → `gcmm [args...]` → `gpsf` |
 | `cd-work <dir>` | `cd "${LAZY_WORK_DIR}/<dir>"` |
 | `cb` | `cd-work lazy-bashrc` (`cd /opt/git/lazy-bashrc`) |
+| `refresh [rc]` | Runs `refresh.sh` and sources `~/.bashrc` (or `[rc]`) in current shell |
 | `dr <cmd> [args...]` | Dry-run: prints what `<cmd>` will run without executing |
 
 ## Adding Aliases and Composite Functions

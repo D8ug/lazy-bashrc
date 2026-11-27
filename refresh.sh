@@ -10,16 +10,19 @@ _lazy_refresh_main() {
     local script_dir
     script_dir="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     local target_rc="${HOME}/.bashrc"
+    local quiet=0
 
     _lazy_refresh_usage() {
         cat <<'EOF'
-Usage: source ./refresh.sh [OPTIONS]   (updates repo and reloads ~/.bashrc in current shell)
+Usage: refresh                         (lazy-bashrc function: updates repo and reloads ~/.bashrc)
+   or: source ./refresh.sh [OPTIONS]   (updates repo and reloads ~/.bashrc in current shell)
    or: ./refresh.sh [OPTIONS]          (updates repo on main in a subshell)
 
 Runs cb -> gcom -> gpl and refreshes lazy-bashrc commands.
 
 Options:
   --rc <path>   Custom bashrc file to source when sourced (default: ~/.bashrc)
+  --quiet       Suppress the reload reminder when executed in a subshell
   -h, --help    Show this help message
 EOF
     }
@@ -30,6 +33,10 @@ EOF
                 target_rc="${2:-}"
                 [[ -n "$target_rc" ]] || { echo "Missing value for --rc" >&2; return 2; }
                 shift 2
+                ;;
+            --quiet)
+                quiet=1
+                shift
                 ;;
             -h|--help)
                 _lazy_refresh_usage
@@ -62,7 +69,7 @@ EOF
             lazy_run source "${script_dir}/init.sh" || return 1
         fi
     else
-        echo "Run 'source ~/.bashrc' (or use 'source ./refresh.sh' next time) to reload commands in your current shell."
+        (( quiet )) || echo "Run 'source ~/.bashrc' (or use 'refresh' / 'source ./refresh.sh') to reload commands in your current shell."
     fi
 }
 
