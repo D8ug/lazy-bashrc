@@ -162,20 +162,20 @@ PATH="${TMP_DIR}/bin:${PATH}" bash -c "
     }
     lazy_register cb
 
-    lazy_alias gcob gco -b
+    lazy_alias gcob_alias gco -b
 
     cd '${TMP_DIR}'
     dr cb
     echo \"PWD_AFTER_DR=\${PWD}\"
     cb
     echo \"PWD_AFTER_CB=\${PWD}\"
-    dr gcob topic-1
+    dr gcob_alias topic-1
 " >"$comp_out" 2>"$comp_err"
 
 assert_eq "PWD_AFTER_DR=${TMP_DIR}"$'\n'"PWD_AFTER_CB=${TMP_DIR}/work/lazy-bashrc" "$(cat "$comp_out")" "dr cb preserves PWD while live cb changes PWD"
 expected_comp_err=$'cd-work lazy-bashrc\n  cd '"${TMP_DIR}"$'/work/lazy-bashrc\ncd-work lazy-bashrc\n  cd '"${TMP_DIR}"$'/work/lazy-bashrc\ngco -b topic-1\n  git checkout -b topic-1'
 assert_eq "$expected_comp_err" "$(cat "$comp_err")" "nested indentation trace for composite functions and aliases"
-assert_eq "" "$(cat "$MOCK_LOG")" "dr gcob does not execute git"
+assert_eq "" "$(cat "$MOCK_LOG")" "dr gcob_alias does not execute git"
 
 # 7. Test install.sh and --uninstall in an isolated copy
 inst_repo="${TMP_DIR}/repo"
@@ -258,6 +258,140 @@ assert_contains "$proj_err_content" "skipping broken or unreadable link" "broken
 assert_contains "$proj_err_content" $'gco main\n  git checkout main\nms\n  make snake-game' "project function composes on top of lazy-bashrc aliases under dr"
 assert_contains "$proj_err_content" "make snake-game --dry" "project alias ms forwards args"
 assert_eq "make snake-game --dry" "$(cat "$MOCK_LOG")" "only live ms executes make while dr snake_ship skips git and make"
+
+# 9. Test git aliases & workflow functions against a real temp git repo + bare remote
+git_bare="${TMP_DIR}/remote.git"
+git_work="${TMP_DIR}/work_repo"
+git init --bare -b main "$git_bare" >/dev/null 2>&1
+git clone "$git_bare" "$git_work" >/dev/null 2>&1
+git -C "$git_work" config user.name "Test User"
+git -C "$git_work" config user.email "test@example.com"
+printf 'v1\n' > "${git_work}/tracked.txt"
+printf 'other\n' > "${git_work}/other.txt"
+git -C "$git_work" add tracked.txt other.txt
+git -C "$git_work" commit -m "initial" >/dev/null 2>&1
+git -C "$git_work" push -u origin main >/dev/null 2>&1
+git -C "$git_work" checkout -b develop >/dev/null 2>&1
+git -C "$git_work" checkout -b feature/alpha >/dev/null 2>&1
+git -C "$git_work" checkout main >/dev/null 2>&1
+
+# 9a. Test dr traces for gs, gcom, gcod, gl, gcmm, gcp, gps, gpsf, gpsfff, gcob (arg & prompt)
+git_dr_err="${TMP_DIR}/git_dr_err.txt"
+bash -c "
+    cd '${git_work}'
+    source '${REPO_DIR}/init.sh'
+    LAZY_COLOR=never
+    dr gs
+    dr gcom
+    dr gcod
+    dr gl -n 5
+    dr gcmm --no-edit
+    dr gcp abc123
+    dr gps
+    dr gpsf
+    dr gpsfff
+    dr gcob feat/arg-branch
+    dr gcob <<< '  feat/from-prompt  '
+" >/dev/null 2>"$git_dr_err"
+
+git_dr_content="$(cat "$git_dr_err")"
+assert_contains "$git_dr_content" "git status" "dr gs trace"
+assert_contains "$git_dr_content" $'gco main\n  git checkout main' "dr gcom nested trace"
+assert_contains "$git_dr_content" $'gco develop\n  git checkout develop' "dr gcod nested trace"
+assert_contains "$git_dr_content" "git log --oneline -n 5" "dr gl trace"
+assert_contains "$git_dr_content" "git commit --amend --no-edit" "dr gcmm trace"
+assert_contains "$git_dr_content" "git cherry-pick abc123" "dr gcp trace"
+assert_contains "$git_dr_content" "git push origin main" "dr gps trace"
+assert_contains "$git_dr_content" "git push --force-with-lease origin main" "dr gpsf trace"
+assert_contains "$git_dr_content" "git push --force origin main" "dr gpsfff trace"
+assert_contains "$git_dr_content" $'gco -b feat/arg-branch\n  git checkout -b feat/arg-branch' "dr gcob with arg"
+assert_contains "$git_dr_content" $'gco -b feat/from-prompt\n  git checkout -b feat/from-prompt' "dr gcob prompts and trims branch name"
+
+# 9b. Test live gcod, gcom, gcob (prompted), fgco (fallback & fzf mock), gl, gcp
+live_git_out="${TMP_DIR}/live_git_out.txt"
+bash -c "
+    cd '${git_work}'
+    source '${REPO_DIR}/init.sh'
+    LAZY_COLOR=never
+    gcod
+    echo \"AFTER_GCOD=\$(git branch --show-current)\"
+    gcom
+    echo \"AFTER_GCOM=\$(git branch --show-current)\"
+    gcob <<< 'feat/live-prompt'
+    echo \"AFTER_GCOB=\$(git branch --show-current)\"
+    printf 'cherry\n' > '${git_work}/cherry.txt'
+    git add cherry.txt && git commit -m 'cherry commit' >/dev/null
+    cherry_sha=\$(git rev-parse HEAD)
+    fgco alpha
+    echo \"AFTER_FGCO_FALLBACK=\$(git branch --show-current)\"
+    gcp \"\$cherry_sha\" >/dev/null
+    gl -n 2
+" >"$live_git_out" 2>/dev/null
+
+live_git_content="$(cat "$live_git_out")"
+assert_contains "$live_git_content" "AFTER_GCOD=develop" "gcod checks out develop"
+assert_contains "$live_git_content" "AFTER_GCOM=main" "gcom checks out main"
+assert_contains "$live_git_content" "AFTER_GCOB=feat/live-prompt" "gcob creates and checks out prompted branch"
+assert_contains "$live_git_content" "AFTER_FGCO_FALLBACK=feature/alpha" "fgco fallback fuzzy-matches feature/alpha"
+assert_contains "$live_git_content" "cherry commit" "gcp cherry-picks commit and gl prints oneline log"
+
+# Test fgco with mock fzf in PATH (isolated from mock git)
+mkdir -p "${TMP_DIR}/fzf_bin"
+cat > "${TMP_DIR}/fzf_bin/fzf" <<'EOF'
+#!/usr/bin/env bash
+grep -m1 '^develop$'
+EOF
+chmod +x "${TMP_DIR}/fzf_bin/fzf"
+fgco_fzf_out="$(
+    PATH="${TMP_DIR}/fzf_bin:${PATH}" bash -c "
+        cd '${git_work}'
+        source '${REPO_DIR}/init.sh'
+        LAZY_COLOR=never
+        fgco
+        git branch --show-current
+    " 2>/dev/null
+)"
+assert_eq "develop" "$fgco_fzf_out" "fgco uses fzf when available"
+
+# 9c. Test gam (only unstaged modified files, not untracked or already staged) + gacmmnp (dr & live)
+bash -c "
+    cd '${git_work}'
+    source '${REPO_DIR}/init.sh'
+    LAZY_COLOR=never
+    gcob feat/amend-push >/dev/null 2>&1
+    printf 'base\n' > '${git_work}/tracked.txt'
+    git add tracked.txt && git commit -m 'base feature' >/dev/null
+    gps >/dev/null 2>&1
+"
+printf 'modified\n' > "${git_work}/tracked.txt"
+printf 'untracked\n' > "${git_work}/untracked.txt"
+printf 'pre-staged\n' > "${git_work}/prestaged.txt"
+git -C "$git_work" add prestaged.txt
+
+gacmmnp_dr_err="${TMP_DIR}/gacmmnp_dr_err.txt"
+bash -c "
+    cd '${git_work}'
+    source '${REPO_DIR}/init.sh'
+    LAZY_COLOR=never
+    dr gacmmnp --no-edit
+" >/dev/null 2>"$gacmmnp_dr_err"
+
+gacmmnp_dr_content="$(cat "$gacmmnp_dr_err")"
+assert_contains "$gacmmnp_dr_content" $'gam\n  gs\n    git status\n  git add -- tracked.txt' "dr gacmmnp traces gam -> gs and adds only unstaged modified file"
+assert_contains "$gacmmnp_dr_content" $'gcmm --no-edit\n  git commit --amend --no-edit' "dr gacmmnp traces gcmm"
+assert_contains "$gacmmnp_dr_content" $'gpsf\n  git push --force-with-lease origin feat/amend-push' "dr gacmmnp traces gpsf"
+assert_eq " M tracked.txt" "$(git -C "$git_work" status --porcelain | grep ' tracked\.txt$')" "dr gacmmnp leaves tracked.txt unstaged"
+
+# Now run live gacmmnp --no-edit and verify untracked.txt stays untracked, tracked.txt is amended & pushed
+bash -c "
+    cd '${git_work}'
+    source '${REPO_DIR}/init.sh'
+    LAZY_COLOR=never
+    gacmmnp --no-edit
+" >/dev/null 2>&1
+
+assert_eq "?? untracked.txt" "$(git -C "$git_work" status --porcelain)" "live gacmmnp commits tracked & prestaged files while leaving untracked.txt untracked"
+assert_eq "$(git -C "$git_work" rev-parse HEAD)" "$(git -C "$git_bare" rev-parse refs/heads/feat/amend-push)" "live gacmmnp force-pushes amended commit to origin"
 
 printf 'Tests finished: %d passed, %d failed\n' "$PASS_COUNT" "$FAIL_COUNT"
 (( FAIL_COUNT == 0 ))

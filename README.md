@@ -21,7 +21,7 @@ lazy-bashrc/
 │   └── core.sh          # lazy_alias, lazy_register, lazy_run, dr
 ├── aliases/
 │   ├── apt.sh           # sai -> sudo apt install -y
-│   └── git.sh           # gco -> git checkout
+│   └── git.sh           # Git shortcuts & workflow functions (gco, gs, gam, gps*, etc.)
 ├── functions/
 │   └── examples.sh      # Example composite functions (commented out)
 ├── projects/
@@ -46,7 +46,20 @@ To install only for the current user (skipping `/root/.bashrc`), run `source ./i
 | Command | Expands to |
 | --- | --- |
 | `sai <pkg...>` | `sudo apt install -y <pkg...>` |
+| `gs` | `git status` |
 | `gco <args...>` | `git checkout <args...>` |
+| `gcom` | `gco main` (`git checkout main`) |
+| `gcod` | `gco develop` (`git checkout develop`) |
+| `fgco [query]` | Fuzzy branch checkout (`fzf` if installed, else built-in fuzzy prompt) |
+| `gcob [branch]` | `gco -b <branch>` (prompts `branch name> ` if omitted) |
+| `gl [args...]` | `git log --oneline [args...]` |
+| `gcmm [args...]` | `git commit --amend [args...]` |
+| `gcp <args...>` | `git cherry-pick <args...>` |
+| `gps [args...]` | `git push [args...] origin <current_branch>` |
+| `gpsf [args...]` | `git push --force-with-lease [args...] origin <current_branch>` |
+| `gpsfff [args...]` | `git push --force [args...] origin <current_branch>` |
+| `gam` | Runs `gs` and `git add` on unstaged modified files only |
+| `gacmmnp [args...]` | Runs `gam` → `gcmm [args...]` → `gpsf` |
 | `dr <cmd> [args...]` | Dry-run: prints what `<cmd>` will run without executing |
 
 ## Adding Aliases and Composite Functions
