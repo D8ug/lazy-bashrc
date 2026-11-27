@@ -37,7 +37,7 @@ cd /opt/git/lazy-bashrc
 source ./install.sh
 ```
 
-Sourcing `install.sh` installs the hooks in `~/.bashrc` and `/root/.bashrc`, creates `config.env`, and immediately runs `source ~/.bashrc` in your current shell.
+Sourcing `install.sh` ensures `fzf` is installed, adds hooks in `~/.bashrc` and `/root/.bashrc`, creates `config.env`, and immediately runs `source ~/.bashrc` in your current shell.
 
 To install only for the current user (skipping `/root/.bashrc`), run `source ./install.sh --user-only`. To uninstall, run `./install.sh --uninstall`.
 

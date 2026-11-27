@@ -17,6 +17,7 @@ _lazy_install_main() {
     local root_bashrc="/root/.bashrc"
     local do_user=1
     local do_root=1
+    local do_deps=1
     local uninstall=0
 
     _lazy_install_usage() {
@@ -26,12 +27,14 @@ Usage: source ./install.sh [OPTIONS]   (installs and reloads ~/.bashrc in curren
 
 Install or uninstall lazy-bashrc in both user and root bashrc files
 (so interactive shells and `sudo su` sessions both load lazy-bashrc).
+Also ensures required dependencies (such as fzf) are installed.
 
 Options:
   --user-only             Only modify the user's bashrc (skip /root/.bashrc)
   --root-only             Only modify /root/.bashrc
   --user-bashrc <path>    Custom path for user bashrc (default: ~/.bashrc)
   --root-bashrc <path>    Custom path for root bashrc (default: /root/.bashrc)
+  --skip-deps             Skip installing missing dependencies (e.g. fzf)
   --uninstall             Remove the lazy-bashrc block from target bashrc files
   -h, --help              Show this help message
 EOF
@@ -56,6 +59,10 @@ EOF
                 root_bashrc="${2:-}"
                 [[ -n "$root_bashrc" ]] || { echo "Missing value for --root-bashrc" >&2; return 2; }
                 shift 2
+                ;;
+            --skip-deps)
+                do_deps=0
+                shift
                 ;;
             --uninstall)
                 uninstall=1
@@ -173,6 +180,37 @@ EOF
         fi
     }
 
+    _lazy_run_as_root() {
+        if [[ $EUID -eq 0 ]]; then
+            "$@"
+        elif command -v sudo >/dev/null 2>&1; then
+            sudo "$@"
+        else
+            echo "Cannot run '$*' as root: sudo is unavailable." >&2
+            return 1
+        fi
+    }
+
+    _lazy_ensure_fzf() {
+        if command -v fzf >/dev/null 2>&1; then
+            return 0
+        fi
+
+        echo "fzf not found; installing fzf..."
+        if command -v apt-get >/dev/null 2>&1; then
+            _lazy_run_as_root apt-get update && _lazy_run_as_root apt-get install -y fzf
+        elif command -v dnf >/dev/null 2>&1; then
+            _lazy_run_as_root dnf install -y fzf
+        elif command -v pacman >/dev/null 2>&1; then
+            _lazy_run_as_root pacman -S --noconfirm fzf
+        elif command -v brew >/dev/null 2>&1; then
+            brew install fzf
+        else
+            echo "Unable to install fzf automatically: no supported package manager found." >&2
+            return 1
+        fi
+    }
+
     local -a targets=()
     if (( do_user )); then
         targets+=("$user_bashrc")
@@ -187,6 +225,9 @@ EOF
             _lazy_uninstall_from_file "$target" || return 1
         done
     else
+        if (( do_deps )); then
+            _lazy_ensure_fzf || return 1
+        fi
         _lazy_ensure_config_env || return 1
         for target in "${targets[@]}"; do
             _lazy_install_to_file "$target" || return 1
@@ -215,7 +256,8 @@ _lazy_install_rc=0
 _lazy_install_main "$_lazy_install_is_sourced" "$@" || _lazy_install_rc=$?
 
 unset -f _lazy_install_main _lazy_install_usage _lazy_run_as_needed \
-    _lazy_install_to_file _lazy_uninstall_from_file _lazy_ensure_config_env 2>/dev/null || true
+    _lazy_install_to_file _lazy_uninstall_from_file _lazy_ensure_config_env \
+    _lazy_run_as_root _lazy_ensure_fzf 2>/dev/null || true
 
 if (( _lazy_install_is_sourced )); then
     eval "unset _lazy_install_is_sourced _lazy_install_rc; return ${_lazy_install_rc}"

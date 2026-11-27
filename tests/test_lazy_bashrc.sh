@@ -190,9 +190,13 @@ mkdir -p "$(dirname "$user_rc")" "$(dirname "$root_rc")"
 printf '# existing user line\n' > "$user_rc"
 printf '# existing root line\n' > "$root_rc"
 
-"${inst_repo}/install.sh" --user-bashrc "$user_rc" --root-bashrc "$root_rc" >/dev/null
+mkdir -p "${TMP_DIR}/fzf_bin"
+printf '#!/usr/bin/env bash\nexit 0\n' > "${TMP_DIR}/fzf_bin/fzf"
+chmod +x "${TMP_DIR}/fzf_bin/fzf"
+
+PATH="${TMP_DIR}/fzf_bin:${PATH}" "${inst_repo}/install.sh" --user-bashrc "$user_rc" --root-bashrc "$root_rc" >/dev/null
 # Run a second time to verify idempotency
-"${inst_repo}/install.sh" --user-bashrc "$user_rc" --root-bashrc "$root_rc" >/dev/null
+PATH="${TMP_DIR}/fzf_bin:${PATH}" "${inst_repo}/install.sh" --user-bashrc "$user_rc" --root-bashrc "$root_rc" >/dev/null
 
 assert_eq "1" "$(grep -cF '# >>> lazy-bashrc >>>' "$user_rc")" "install adds single block to user bashrc"
 assert_eq "1" "$(grep -cF '# >>> lazy-bashrc >>>' "$root_rc")" "install adds single block to root bashrc"
@@ -208,7 +212,7 @@ assert_contains "$(cat "$root_rc")" "# existing root line" "uninstall preserves 
 
 # 7b. Test sourcing install.sh in an interactive shell auto-sources user bashrc without leaking set -e
 sourced_out="$(
-    bash --norc -i -c "
+    PATH="${TMP_DIR}/fzf_bin:${PATH}" bash --norc -i -c "
         source '${inst_repo}/install.sh' --user-bashrc '${user_rc}' --root-bashrc '${root_rc}' >/dev/null
         [[ \$- == *e* ]] && echo 'SETE_LEAK' || echo 'SETE_OK'
         declare -F sai >/dev/null && echo 'SOURCED_SAI_OK'
@@ -216,6 +220,19 @@ sourced_out="$(
 )"
 assert_contains "$sourced_out" "SETE_OK" "sourcing install.sh does not leak set -e"
 assert_contains "$sourced_out" "SOURCED_SAI_OK" "sourcing install.sh auto-sources user bashrc into current shell"
+
+# 7c. Test install.sh installs fzf via apt-get when fzf is missing
+mkdir -p "${TMP_DIR}/apt_bin"
+apt_log="${TMP_DIR}/apt_install.log"
+: > "$apt_log"
+cat > "${TMP_DIR}/apt_bin/sudo" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >> "${apt_log}"
+EOF
+printf '#!/usr/bin/env bash\nexit 0\n' > "${TMP_DIR}/apt_bin/apt-get"
+chmod +x "${TMP_DIR}/apt_bin/sudo" "${TMP_DIR}/apt_bin/apt-get"
+PATH="${TMP_DIR}/apt_bin:/bin:/usr/bin" "${inst_repo}/install.sh" --user-bashrc "$user_rc" --root-bashrc "$root_rc" >/dev/null
+assert_eq $'apt-get update\napt-get install -y fzf' "$(cat "$apt_log")" "install.sh installs fzf when missing"
 
 # 8. Test external symlinked project bashrc loading (e.g. snake.bashrc) + broken symlink handling
 proj_ext="${TMP_DIR}/external_snake"
