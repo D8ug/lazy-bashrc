@@ -22,7 +22,8 @@ lazy-bashrc/
 │   └── core.sh          # lazy_alias, lazy_register, lazy_run, dr
 ├── aliases/
 │   ├── apt.sh           # sai, saui -> sudo apt install/remove -y
-│   └── git.sh           # Git shortcuts & workflow functions (gco, gs, gam, gps*, etc.)
+│   ├── git.sh           # Git shortcuts & workflow functions (gco, gs, gam, gps*, etc.)
+│   └── system.sh        # System shortcuts (sus -> sudo su)
 ├── functions/
 │   ├── examples.sh      # Example composite functions (commented out)
 │   ├── navigation.sh    # cd-work, cb -> cd to lazy-bashrc repo
@@ -76,6 +77,7 @@ refresh
 | `c`, `cc`, `ccc`, ... | `cd ..`, `cd ../..`, `cd ../../..`, ... (up to 16 levels) |
 | `b` | `cd -` (switch back to previous directory) |
 | `refresh [rc]` | Runs `refresh.sh` and sources `~/.bashrc` (or `[rc]`) in current shell |
+| `sus [args...]` | `sudo su [args...]` |
 | `dr <cmd> [args...]` | Dry-run: prints what `<cmd>` will run without executing |
 
 ## Adding Aliases and Composite Functions
